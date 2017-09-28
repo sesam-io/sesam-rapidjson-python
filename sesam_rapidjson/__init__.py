@@ -36,9 +36,9 @@ class JSONDictHandler:
 
 class JSONParser:
 
-    def __init__(self, stream, transit_mapping=None):
+    def __init__(self, stream, handler=JSONDictHandler, transit_mapping=None):
         self._queue = Queue(maxsize=10000)
-        self._handler = JSONDictHandler(self._queue)
+        self._handler = handler(self._queue)
         self._stream = stream
         self._sentinel = None
         self._transit_mapping = transit_mapping

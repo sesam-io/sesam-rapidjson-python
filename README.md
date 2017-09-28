@@ -1,19 +1,30 @@
-Test of rapid json python parsing
+Sesam Rapidjson bindings
+========================
 
-pip install pybind11>=2.2
-pip install -U .
+Installation
+------------
 
-Sax in python:
-python parse_json.py -f combined.json
+The installation is in two parts. The pybind11 package must be pre-installed before you install this package. The reason for this is that pip/setuptools doesn't support build requirements yet. 
+It means that if you intend to use this package in your own project, you must also include the pybind dependency explicitly in addition to this package.
 
-Sax in C++:
-python parse_json.py -f combined.json --dict
+    pip install "pybind11>=2.2"
+    pip install -U .
 
-Finding start/end of entity in stream, decode using rapidjson bindings in python (third party module)
-python parse_json.py -f combined.json --string
 
-Use IJson streaming using yakj_cffi:
-python parse_json.py -f combined.json --isjon
+Usage
+-----
 
-Optional flags:
---debug and --transit-decode 
+    import sesam_rapidjson
+    from pprint import pprint
+    from io import FileIO
+    
+    with FileIO("test.json", "rb") as stream:
+        parser = sesam_rapidjson.JSONParser(stream)
+        entities = [e for e in parser]
+    
+        assert len(entities) == 1
+    
+        assert entities[0] == {'hello': 'world', 't': True, 'f': False, 'i': 123, 'pi': 3.1416, 'a': [1, 2, 3, 4]}
+    
+        pprint(entities)
+
