@@ -1,4 +1,4 @@
-Sesam Rapidjson bindings
+Sesam rapidjson bindings
 ========================
 
 Installation
