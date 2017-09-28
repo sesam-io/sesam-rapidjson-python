@@ -42,11 +42,11 @@ with StringIO('{"a": "~t1969-03-27T09:28-18.923Z"') as stream:
         print("Got unexpected error!")
 
 
-with StringIO('{"a": "~t0001-01-01T00:00:00.000000000Z", "b": "~t9999-12-31T23:59:59.000000000Z"}') as stream:
+with StringIO('{"a": "~t0001-01-01T00:00:00.000000000Z", "b": "~t9999-12-31T23:59:59.000000000Z", "c": "~t2015-11-24"}') as stream:
     parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
     entities = [e for e in parser]
 
     assert len(entities) == 1
     pprint(entities)
 
-    assert entities[0] == {'a': -62135596800000000000, "b": 253402300799000000000}
+    assert entities[0] == {'a': -62135596800000000000, "b": 253402300799000000000, "c": 1448323200000000000}

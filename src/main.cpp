@@ -52,7 +52,9 @@ py::int_ parse8601(const std::string &date_str)
     if (date_str.length() <= 27) {
         //cout << "Normal date!" << endl;
         if (str_len == 10) {
-            in >> date::parse("%FT", tp);
+            // 2001-01-01
+            in >> date::parse("%F", tp);
+
         } else {
             in >> date::parse("%FT%TZ", tp);
 
