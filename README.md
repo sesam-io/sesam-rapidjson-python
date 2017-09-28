@@ -39,7 +39,7 @@ ints (nanoseconds since epoch).
 Example that supports transit decoding "f" type values to python Decimals:
 
 
-    import sesam_rapidjson
+    from sesam_rapidjson import JSONParser
     from pprint import pprint
     from io import FileIO
     from decimal import Decimal
@@ -49,7 +49,7 @@ Example that supports transit decoding "f" type values to python Decimals:
     }
     
     with FileIO("test.json", "rb") as stream:
-        parser = sesam_rapidjson.JSONParser(stream, transit_mapping=transit_mapping)
+        parser = JSONParser(stream, transit_mapping=transit_mapping)
         entities = [e for e in parser]
     
         assert len(entities) == 1
@@ -69,7 +69,7 @@ Parse exceptions are thrown as RapidJSONParseError class instances:
     
     with FileIO("test_error.json", "rb") as stream:
         try:
-            parser = sesam_rapidjson.JSONParser(stream)
+            parser = JSONParser(stream)
             entities = [e for e in parser]
         except RapidJSONParseError as e:
             print("Got a parse exception: ", repr(e))
