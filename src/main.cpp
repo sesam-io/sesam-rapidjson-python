@@ -70,7 +70,7 @@ long parse8601(const std::string &date_str)
         std::string nano_digits = date_str.substr(19+1);
         nano_digits = nano_digits.substr(0, nano_digits.length()-1);
         nano_digits = pad_right(nano_digits, 9, '0');
-        cout << "Nano digits: " << nano_digits << endl;
+        //cout << "Nano digits: " << nano_digits << endl;
 
         long nanos = atoi(nano_digits.c_str());
 
