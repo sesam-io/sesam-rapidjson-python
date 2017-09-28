@@ -70,14 +70,14 @@ long parse8601(const std::string &date_str)
         std::string nano_digits = date_str.substr(19+1);
         nano_digits = nano_digits.substr(0, nano_digits.length()-1);
         nano_digits = pad_right(nano_digits, 9, '0');
-        //cout << "Nano digits: " << nano_digits << endl;
+        cout << "Nano digits: " << nano_digits << endl;
 
         long nanos = atoi(nano_digits.c_str());
 
         return 1000000 * std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count() + nanos;
     }
 
-    return std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count();
+    return 1000000 * std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count();
 }
 
 class StreamWrapper {
