@@ -19,7 +19,7 @@ trans_dict = {
     "f": Decimal,
 }
 
-with StringIO('{"a": "~t1969-03-27T09:28:18.923Z", "b": "~f1.0", "c": "~f1.1"}') as stream:
+with StringIO('{"a": "~t1969-03-27T09:28:18.923Z", "b": 1.0, "c": "~f1.1"}') as stream:
     parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
     entities = [e for e in parser]
 

@@ -455,6 +455,14 @@ public:
     }
 
     bool Double(double value) {
+        if (try_float_as_int == true) {
+            // Special case: reproduce ijson 2.3 bug: treat non-fractional floats as ints
+            double intpart;
+            if (modf(value, &intpart) == 0.0) {
+                return Int64((int64_t)value);
+            }
+        }
+
         py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
@@ -509,80 +517,6 @@ public:
                             reason << "Failed to transit decode value '" << s_str << "'. Most likely not a ISO8601 date. Exception raised: " << ex.what();
                             fail_reason = reason.str();
                             return false;
-                        }
-                    }
-                    else if (prefix[0] == 'f') {
-                        if (try_float_as_int == true) {
-                            // Special case: reproduce ijson 2.3 bug: first try to parse the number as a long int
-                            //cout << "Trying to parse value as int: " << value << endl;
-
-                            double number = 0.0;
-                            double intpart;
-
-                            errno = 0;
-                            // pointer to additional chars
-                            char *endptr = NULL;
-
-                            // call to strtol assigning return to number
-                            const char *input_str = value.c_str();
-                            number = std::strtod(input_str, &endptr);
-
-                            // test return to number and errno values
-                            if (!(input_str == endptr ||
-                                (errno == ERANGE && number == -HUGE_VAL) ||
-                                (errno == ERANGE && number == HUGE_VAL) ||
-                                (errno == EINVAL) ||
-                                (errno != 0 && number == 0.0)) && (errno == 0 && input_str && !*endptr)) {
-                                    if (modf(number, &intpart) == 0.0) {
-                                        // No error and is actually an integer
-                                        // cout << "Number was an integer!" << endl;
-                                        result_value = py::int_((long int)number);
-
-                                    } else {
-                                        // Just a normal double number, let pyhton have it
-                                        //cout << "A number but not an int!" << endl;
-
-                                        try {
-                                            result_value = decode_func(value);
-                                        } catch (py::error_already_set& ex) {
-                                            std::stringstream reason;
-                                            reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
-                                            fail_reason = reason.str();
-                                            ex.restore();
-                                            PyErr_Clear();
-
-                                            return false;
-                                        }
-                                    }
-                                }
-                            else {
-                                // Couldn't parse the number, just fall back to python
-                                try {
-                                    result_value = decode_func(value);
-                                } catch (py::error_already_set& ex) {
-                                    std::stringstream reason;
-                                    reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
-                                    fail_reason = reason.str();
-                                    ex.restore();
-                                    PyErr_Clear();
-
-                                    return false;
-                                }
-                            }
-                        }
-                        else {
-                            // Normal path
-                            try {
-                                result_value = decode_func(value);
-                            } catch (py::error_already_set& ex) {
-                                std::stringstream reason;
-                                reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
-                                fail_reason = reason.str();
-                                ex.restore();
-                                PyErr_Clear();
-
-                                return false;
-                            }
                         }
                     } else {
                         try {
