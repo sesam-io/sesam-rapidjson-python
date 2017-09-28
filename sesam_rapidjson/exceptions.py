@@ -26,20 +26,30 @@ class RapidJSONParseError(ValueError):
         17: "Unspecific syntax error"
     }
 
-    def __init__(self, error_code, offset, line_no, column):
+    def __init__(self, error_code, offset, line_no, column, fail_reason):
         self._error_code = error_code
         self._offset = offset
         self._line_no = line_no
         self._column = column
+        self._fail_reason = fail_reason
 
-        msg = "JSON parse error while decoding stream: %s at line %s, column %s (position %s)" % \
-              (self.json_error_msg.get(self.error_code), line_no, column, offset)
+        if self._fail_reason:
+            self._msg = "JSON parse error while decoding stream: %s at line %s, " \
+                        "column %s (position %s).\nReason was: %s" % \
+                        (self.json_error_msg.get(self.error_code), line_no, column, offset, self._fail_reason)
+        else:
+            self._msg = "JSON parse error while decoding stream: %s at line %s, column %s (position %s)" % \
+                        (self.json_error_msg.get(self.error_code), line_no, column, offset)
 
-        ValueError.__init__(self, msg)
+        super().__init__(self._msg)
 
     @property
     def error_code(self):
         return self._error_code
+
+    @property
+    def msg(self):
+        return self._msg
 
     @property
     def offset(self):
@@ -52,3 +62,7 @@ class RapidJSONParseError(ValueError):
     @property
     def column(self):
         return self._column
+
+    @property
+    def fail_reason(self):
+        return self._fail_reason

@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <cerrno>
+#include <limits>
 
 #include "date.h"
 
@@ -346,11 +348,14 @@ class MyHandlerDict : public BaseReaderHandler<UTF8<>, MyHandlerDict> {
 private:
     py::object py_handler;
     py::object dict_handler;
+    bool try_float_as_int;
     std::vector<py::object> context_stack;
     std::vector<std::string> name_context;
     std::map <std::string, py::object> transit_map;
 
 public:
+    std::string fail_reason;
+
     bool Null() { return true; }    // We don't care about null values
 
     bool Bool(bool value) {
@@ -489,12 +494,109 @@ public:
 
                     if (prefix[0] == 't') {
                         // Parse dates in C++
-                        result_value = decode_func(py::int_(parse8601(value)));
+                        try {
+                            result_value = decode_func(py::int_(parse8601(value)));
+                        } catch (py::error_already_set& ex) {
+                            std::stringstream reason;
+                            reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
+                            fail_reason = reason.str();
+                            ex.restore();
+                            PyErr_Clear();
+
+                            return false;
+                        } catch (std::exception& ex) {
+                            std::stringstream reason;
+                            reason << "Failed to transit decode value '" << s_str << "'. Most likely not a ISO8601 date. Exception raised: " << ex.what();
+                            fail_reason = reason.str();
+                            return false;
+                        }
                     }
-                    else {
-                        result_value = decode_func(value);
+                    else if (prefix[0] == 'f') {
+                        if (try_float_as_int == true) {
+                            // Special case: reproduce ijson 2.3 bug: first try to parse the number as a long int
+                            //cout << "Trying to parse value as int: " << value << endl;
+
+                            double number = 0.0;
+                            double intpart;
+
+                            errno = 0;
+                            // pointer to additional chars
+                            char *endptr = NULL;
+
+                            // call to strtol assigning return to number
+                            const char *input_str = value.c_str();
+                            number = std::strtod(input_str, &endptr);
+
+                            // test return to number and errno values
+                            if (!(input_str == endptr ||
+                                (errno == ERANGE && number == -HUGE_VAL) ||
+                                (errno == ERANGE && number == HUGE_VAL) ||
+                                (errno == EINVAL) ||
+                                (errno != 0 && number == 0.0)) && (errno == 0 && input_str && !*endptr)) {
+                                    if (modf(number, &intpart) == 0.0) {
+                                        // No error and is actually an integer
+                                        // cout << "Number was an integer!" << endl;
+                                        result_value = py::int_((long int)number);
+
+                                    } else {
+                                        // Just a normal double number, let pyhton have it
+                                        //cout << "A number but not an int!" << endl;
+
+                                        try {
+                                            result_value = decode_func(value);
+                                        } catch (py::error_already_set& ex) {
+                                            std::stringstream reason;
+                                            reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
+                                            fail_reason = reason.str();
+                                            ex.restore();
+                                            PyErr_Clear();
+
+                                            return false;
+                                        }
+                                    }
+                                }
+                            else {
+                                // Couldn't parse the number, just fall back to python
+                                try {
+                                    result_value = decode_func(value);
+                                } catch (py::error_already_set& ex) {
+                                    std::stringstream reason;
+                                    reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
+                                    fail_reason = reason.str();
+                                    ex.restore();
+                                    PyErr_Clear();
+
+                                    return false;
+                                }
+                            }
+                        }
+                        else {
+                            // Normal path
+                            try {
+                                result_value = decode_func(value);
+                            } catch (py::error_already_set& ex) {
+                                std::stringstream reason;
+                                reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
+                                fail_reason = reason.str();
+                                ex.restore();
+                                PyErr_Clear();
+
+                                return false;
+                            }
+                        }
+                    } else {
+                        try {
+                            result_value = decode_func(value);
+                        } catch (py::error_already_set& ex) {
+                            std::stringstream reason;
+                            reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
+                            fail_reason = reason.str();
+                            ex.restore();
+                            PyErr_Clear();
+
+                            return false;
+                        }
                     }
-                    // cout << "Result: " << result_value << endl;
                 }
             }
         }
@@ -594,8 +696,13 @@ public:
         return true;
     }
 
-    MyHandlerDict(py::object py_handler, py::object py_transit_map) {
+    MyHandlerDict(py::object py_handler, py::object py_transit_map, py::object do_float_as_int) {
         dict_handler = py_handler.attr("handle_dict");
+
+        if (!py::isinstance<py::none>(do_float_as_int)) {
+            try_float_as_int = do_float_as_int.cast<py::bool_>();
+        } else
+            try_float_as_int = false;
 
         if (!py::isinstance<py::none>(py_transit_map)) {
             py::dict transit_decode_map = (py::dict)py_transit_map;
@@ -708,18 +815,22 @@ int parse_strings(py::object stream, py::object handler) {
     return 0;
 }
 
-int parse_dict(py::object stream, py::object handler, py::object transit_decode_map) {
+int parse_dict(py::object stream, py::object handler, py::object transit_decode_map, py::object do_float_as_int) {
     Reader reader;
 
     StreamWrapper stream_wrapper(stream);
-    MyHandlerDict my_handler(handler, transit_decode_map);
+    MyHandlerDict my_handler(handler, transit_decode_map, do_float_as_int);
 
     reader.IterativeParseInit();
+    bool parse_success = true;
+
     while (!reader.IterativeParseComplete() && !reader.HasParseError()) {
-        reader.IterativeParseNext<kParseDefaultFlags>(stream_wrapper, my_handler);
+        parse_success = reader.IterativeParseNext<kParseDefaultFlags>(stream_wrapper, my_handler);
         // Your handler has been called once.
-        //cout << "Handler was called!" << endl;
+        //cout << "Handler was called! ParseErrorCode = " << reader.GetParseErrorCode() << " Result was: " << parse_success << endl;
     }
+
+    //cout << "IterativeParseNext finished. Error code = " << reader.GetParseErrorCode() << endl;
 
     if (reader.HasParseError()) {
         py::object handle_error = handler.attr("handle_error");
@@ -730,7 +841,7 @@ int parse_dict(py::object stream, py::object handler, py::object transit_decode_
             size_t line_no = stream_wrapper.GetLine();
             size_t column = stream_wrapper.GetColumn();
 
-            handle_error(error_code, offset, line_no, column);
+            handle_error(error_code, offset, line_no, column, my_handler.fail_reason);
         }
     }
 
