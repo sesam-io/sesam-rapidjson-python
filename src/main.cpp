@@ -37,7 +37,7 @@ std::string pad_right(std::string const& str, size_t s, const char padding_char)
         return str;
 }
 
-long parse8601(const std::string &date_str)
+py::int_ parse8601(const std::string &date_str)
 {
     using namespace date;
 
@@ -69,17 +69,30 @@ long parse8601(const std::string &date_str)
         std::istringstream in_sub{date_str.substr(0, 19) + "Z"};
         in_sub >> date::parse("%FT%TZ", tp);
 
+        // cout << "tp: " << tp << endl;
+
         std::string nano_digits = date_str.substr(19+1);
         nano_digits = nano_digits.substr(0, nano_digits.length()-1);
         nano_digits = pad_right(nano_digits, 9, '0');
-        //cout << "Nano digits: " << nano_digits << endl;
+        // cout << "Nano digits: " << nano_digits << endl;
 
-        long nanos = atoi(nano_digits.c_str());
+        py::int_ ms(std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count());
+        py::int_ nanos(atoi(nano_digits.c_str()));
 
-        return 1000000 * std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count() + nanos;
+        py::object mul = ms.attr("__mul__");
+
+        ms = mul(1000000);
+
+        py::object add = ms.attr("__add__");
+
+        return add(nanos);
     }
 
-    return 1000000 * std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count();
+    py::int_ ms(std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count());
+
+    py::object mul = ms.attr("__mul__");
+
+    return mul(1000000);
 }
 
 class StreamWrapper {
@@ -503,7 +516,7 @@ public:
                     if (prefix[0] == 't') {
                         // Parse dates in C++
                         try {
-                            result_value = decode_func(py::int_(parse8601(value)));
+                            result_value = decode_func(parse8601(value));
                         } catch (py::error_already_set& ex) {
                             std::stringstream reason;
                             reason << "Failed to transit decode value '" << s_str << "'. Exception raised: " << ex.what();
