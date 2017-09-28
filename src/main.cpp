@@ -371,7 +371,24 @@ private:
 public:
     std::string fail_reason;
 
-    bool Null() { return true; }    // We don't care about null values
+    bool Null() {
+        py::object context_obj = context_stack.back();
+
+        if (py::isinstance<py::dict>(context_obj)) {
+            // key:value
+            std::string prop_name = name_context.back();
+            name_context.pop_back();
+            py::dict parent_dict = (py::dict)context_obj;
+            parent_dict[py::str(prop_name)] = py::none();
+        }
+        else {
+            // [value1, value2]
+            py::list parent_list = (py::list)context_obj;
+            parent_list.append(py::none());
+        }
+
+        return true;
+    }
 
     bool Bool(bool value) {
         py::object context_obj = context_stack.back();
