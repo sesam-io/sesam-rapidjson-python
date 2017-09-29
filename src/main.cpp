@@ -45,41 +45,56 @@ py::int_ parse8601(const std::string &date_str)
     std::string save;
     is >> save;
     std::istringstream in{save};
-    date::sys_time<std::chrono::milliseconds> tp;
-
     size_t str_len = date_str.length();
 
     if (date_str.length() <= 27) {
+        date::sys_time<std::chrono::nanoseconds> tp;
+
         //cout << "Normal date!" << endl;
         if (str_len == 10) {
             // 2001-01-01
             in >> date::parse("%F", tp);
 
         } else {
+            //cout << "Parsing '" << date_str << "'" << endl;
             in >> date::parse("%FT%TZ", tp);
 
+            //cout << "Got:" << tp << endl;
+
             if (in.fail()) {
+                //cout << "Meh that failed... " << endl;
+
                 in.clear();
                 in.exceptions(std::ios::failbit);
                 in.str(save);
                 in >> date::parse("%FT%T%Ez", tp);
+
+                //cout << "Got:" << tp << endl;
             }
         }
+        py::int_ ms(std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count());
+
+        //cout << "Normal Ms: " << ms << endl;
+        return ms;
     } else {
+        date::sys_time<std::chrono::milliseconds> tp;
+
         //cout << "Date with nanoseconds!" << endl;
 
         std::istringstream in_sub{date_str.substr(0, 19) + "Z"};
         in_sub >> date::parse("%FT%TZ", tp);
 
-        // cout << "tp: " << tp << endl;
+        //cout << "tp: " << tp << endl;
 
         std::string nano_digits = date_str.substr(19+1);
         nano_digits = nano_digits.substr(0, nano_digits.length()-1);
         nano_digits = pad_right(nano_digits, 9, '0');
-        // cout << "Nano digits: " << nano_digits << endl;
+        //cout << "Nano digits: " << nano_digits << endl;
 
         py::int_ ms(std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count());
         py::int_ nanos(atoi(nano_digits.c_str()));
+
+        //cout << "ms:" << ms << endl;
 
         py::object mul = ms.attr("__mul__");
 
@@ -89,12 +104,6 @@ py::int_ parse8601(const std::string &date_str)
 
         return add(nanos);
     }
-
-    py::int_ ms(std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count());
-
-    py::object mul = ms.attr("__mul__");
-
-    return mul(1000000);
 }
 
 class StreamWrapper {
