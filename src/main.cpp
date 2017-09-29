@@ -37,6 +37,11 @@ std::string pad_right(std::string const& str, size_t s, const char padding_char)
         return str;
 }
 
+static bool ends_with(const std::string& str, const std::string& suffix)
+{
+    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
+
 py::int_ parse8601(const std::string &date_str)
 {
     using namespace date;
@@ -46,53 +51,44 @@ py::int_ parse8601(const std::string &date_str)
     is >> save;
     std::istringstream in{save};
     size_t str_len = date_str.length();
+    date::sys_time<std::chrono::milliseconds> tp;
 
     if (str_len == 10) {
         //cout << "Normal date!" << endl;
-        date::sys_time<std::chrono::nanoseconds> tp;
 
-        // 2001-01-01
-        in >> date::parse("%F", tp);
+        save = save + "T00:00:00Z";
+    } else if (str_len == 11 and ends_with(save, "Z")) {
 
-        py::int_ ms(std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count());
-
-        //cout << "Normal Ms: " << ms << endl;
-        return ms;
-    } else {
-        date::sys_time<std::chrono::milliseconds> tp;
-
-        //cout << "Date with nanoseconds!" << endl;
-
-        std::istringstream in_sub{date_str.substr(0, 19) + "Z"};
-        in_sub >> date::parse("%FT%TZ", tp);
-
-        if (in_sub.fail()) {
-            //cout << "Meh that failed... " << endl;
-            in.clear();
-            in.exceptions(std::ios::failbit);
-            return py::int_(0);
-        }
-
-        //cout << "tp: " << tp << endl;
-
-        std::string nano_digits = date_str.substr(19+1);
-        nano_digits = nano_digits.substr(0, nano_digits.length()-1);
-        nano_digits = pad_right(nano_digits, 9, '0');
-        //cout << "Nano digits: " << nano_digits << endl;
-
-        py::int_ ms(std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count());
-        py::int_ nanos(atoi(nano_digits.c_str()));
-
-        //cout << "ms:" << ms << endl;
-
-        py::object mul = ms.attr("__mul__");
-
-        ms = mul(1000000);
-
-        py::object add = ms.attr("__add__");
-
-        return add(nanos);
+        save = save.substr(0, 10) + "T00:00:00Z";
+        //cout << "Fixed: " << date_str << " to " << save << endl;
     }
+
+    //cout << "Date with nanoseconds!" << endl;
+
+    std::istringstream in_sub{save.substr(0, 19) + "Z"};
+
+    in_sub.exceptions(std::ios::failbit);
+    in_sub >> date::parse("%FT%TZ", tp);
+
+    //cout << "tp: " << tp << endl;
+
+    std::string nano_digits = save.substr(19+1);
+    nano_digits = nano_digits.substr(0, nano_digits.length()-1);
+    nano_digits = pad_right(nano_digits, 9, '0');
+    //cout << "Nano digits: " << nano_digits << endl;
+
+    py::int_ ms(std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count());
+    py::int_ nanos(atoi(nano_digits.c_str()));
+
+    //cout << "ms:" << ms << endl;
+
+    py::object mul = ms.attr("__mul__");
+
+    ms = mul(1000000);
+
+    py::object add = ms.attr("__add__");
+
+    return add(nanos);
 }
 
 class StreamWrapper {
