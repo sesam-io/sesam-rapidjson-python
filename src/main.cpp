@@ -47,31 +47,13 @@ py::int_ parse8601(const std::string &date_str)
     std::istringstream in{save};
     size_t str_len = date_str.length();
 
-    if (date_str.length() <= 27) {
+    if (str_len == 10) {
+        //cout << "Normal date!" << endl;
         date::sys_time<std::chrono::nanoseconds> tp;
 
-        //cout << "Normal date!" << endl;
-        if (str_len == 10) {
-            // 2001-01-01
-            in >> date::parse("%F", tp);
+        // 2001-01-01
+        in >> date::parse("%F", tp);
 
-        } else {
-            //cout << "Parsing '" << date_str << "'" << endl;
-            in >> date::parse("%FT%TZ", tp);
-
-            //cout << "Got:" << tp << endl;
-
-            if (in.fail()) {
-                //cout << "Meh that failed... " << endl;
-
-                in.clear();
-                in.exceptions(std::ios::failbit);
-                in.str(save);
-                in >> date::parse("%FT%T%Ez", tp);
-
-                //cout << "Got:" << tp << endl;
-            }
-        }
         py::int_ ms(std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count());
 
         //cout << "Normal Ms: " << ms << endl;
@@ -83,6 +65,13 @@ py::int_ parse8601(const std::string &date_str)
 
         std::istringstream in_sub{date_str.substr(0, 19) + "Z"};
         in_sub >> date::parse("%FT%TZ", tp);
+
+        if (in_sub.fail()) {
+            //cout << "Meh that failed... " << endl;
+            in.clear();
+            in.exceptions(std::ios::failbit);
+            return py::int_(0);
+        }
 
         //cout << "tp: " << tp << endl;
 
