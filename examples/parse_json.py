@@ -12,7 +12,7 @@ import ijson.backends.yajl2_cffi as ijson
 import sesam_rapidjson
 from sesam_rapidjson import RapidJSONParseError
 
-from examples.ext_types import URI, Nanoseconds, NI
+from ext_types import URI, Nanoseconds, NI
 
 args = None
 
@@ -370,7 +370,7 @@ class JSONDictParser:
 
     def _run(self):
         transit_mapping = args.do_transit_decode and transit_decode_map or None
-        sesam_rapidjson.parse_dict(self._stream, self._handler, transit_mapping)
+        sesam_rapidjson.parse_dict(self._stream, self._handler, transit_mapping, False)
 
     def __iter__(self):
         self._thread.start()
