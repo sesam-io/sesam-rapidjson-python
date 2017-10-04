@@ -52,7 +52,8 @@ with StringIO('{"a": "~t0001-01-01T00:00:00Z", '
               '"b": "~t9999-12-31T23:59:59.000000000Z",'
               '"c": "~t2015-11-24",'
               '"d": null,'
-              '"e": "~t2010-12-30T01:20:30.123456Z"'
+              '"e": "~t2010-12-30T01:20:30.123456Z",'
+              '"f": "~f1.1"'
               '}') as stream:
     parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
     entities = [e for e in parser]
@@ -67,8 +68,26 @@ with StringIO('{"a": "~t0001-01-01T00:00:00Z", '
     assert Nanoseconds("2015-11-24") == entities[0]["c"]
     assert Nanoseconds("2010-12-30T01:20:30.123456Z") == entities[0]["e"]
 
+    assert Decimal("1.1") == entities[0]["f"]
+    assert type(entities[0]["f"]) == Decimal
+
     assert entities[0] == {'a': Nanoseconds(-62135596800000000000), "b": Nanoseconds(253402300799000000000),
-                           "c": Nanoseconds(1448323200000000000), 'd': None, 'e': Nanoseconds(1293672030123456000)}
+                           "c": Nanoseconds(1448323200000000000), 'd': None, 'e': Nanoseconds(1293672030123456000),
+                           "f": Decimal("1.1")}
+
+
+with StringIO('{"f": 1.12345678900, "i": 1.0, "u": 1}') as stream:
+    parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True, do_float_as_decimal=True)
+    entities = [e for e in parser]
+
+    assert len(entities) == 1
+    pprint(entities)
+
+    assert Decimal("1.12345678900") == entities[0]["f"]
+    assert type(entities[0]["f"]) == Decimal
+
+    assert entities[0]["i"] == 1
+    assert type(entities[0]["i"]) == int
 
 
 for foo in [

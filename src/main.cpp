@@ -8,6 +8,7 @@
 #include <vector>
 #include <cerrno>
 #include <limits>
+#include <iomanip>
 
 #include "date.h"
 
@@ -357,7 +358,9 @@ class MyHandlerDict : public BaseReaderHandler<UTF8<>, MyHandlerDict> {
 private:
     py::object py_handler;
     py::object dict_handler;
+    py::object py_Decimal;
     bool try_float_as_int;
+    bool do_float_as_decimal;
     std::vector<py::object> context_stack;
     std::vector<std::string> name_context;
     std::map <std::string, py::object> transit_map;
@@ -480,12 +483,34 @@ public:
         return true;
     }
 
-    bool Double(double value) {
-        if (try_float_as_int == true) {
-            // Special case: reproduce ijson 2.3 bug: treat non-fractional floats as ints
-            double intpart;
-            if (modf(value, &intpart) == 0.0) {
-                return Int64((int64_t)value);
+    bool is_integer(const std::string &str) {
+        return (str.find_first_not_of("-0123456789") == std::string::npos);
+    }
+
+    bool RawNumber(const char* str, SizeType length, bool copy) {
+        cout << "Raw number! " << str << endl;
+
+        py::object py_value;
+
+        std::string s_str(str);
+
+        if (is_integer(s_str)) {
+            // no fraction or exponent - definately an integer
+            cout << "it's an int!" << endl;
+            py::str tmp(s_str);
+            py_value = tmp.cast<py::int_>();
+        } else {
+            cout << "it's a float!" << endl;
+            py_value = py_Decimal(str);
+
+            if (try_float_as_int == true) {
+                // If no fractional value, cast to int
+                py::int_ int_value = py_value.cast<py::int_>();
+                py::object func_eq = py_value.attr("__eq__");
+                if (func_eq(int_value).cast<bool>() == true) {
+                    cout << "The float can be cast to an int!" << endl;
+                    py_value = int_value;
+                }
             }
         }
 
@@ -496,8 +521,37 @@ public:
             std::string prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = value;
 
+            parent_dict[py::str(prop_name)] = py_value;
+        }
+        else {
+            // [value1, value2]
+            py::list parent_list = (py::list)context_obj;
+            parent_list.append(py_value);
+        }
+
+        return true;
+    }
+
+    bool Double(double value) {
+        if (try_float_as_int == true) {
+            // Special case: reproduce ijson 2.3 bug: treat non-fractional floats as ints
+            double intpart;
+            if (modf(value, &intpart) == 0.0) {
+                return Int64((int64_t)value);
+            }
+        }
+
+
+        py::object context_obj = context_stack.back();
+
+        if (py::isinstance<py::dict>(context_obj)) {
+            // key:value
+            std::string prop_name = name_context.back();
+            name_context.pop_back();
+            py::dict parent_dict = (py::dict)context_obj;
+
+            parent_dict[py::str(prop_name)] = value;
         }
         else {
             // [value1, value2]
@@ -659,6 +713,8 @@ public:
     MyHandlerDict(py::object py_handler, py::object py_transit_map, py::object do_float_as_int) {
         dict_handler = py_handler.attr("handle_dict");
 
+        py_Decimal = py::module::import("decimal").attr("Decimal");
+
         if (!py::isinstance<py::none>(do_float_as_int)) {
             try_float_as_int = do_float_as_int.cast<py::bool_>();
         } else
@@ -775,7 +831,8 @@ int parse_strings(py::object stream, py::object handler) {
     return 0;
 }
 
-int parse_dict(py::object stream, py::object handler, py::object transit_decode_map, py::object do_float_as_int) {
+int parse_dict(py::object stream, py::object handler, py::object transit_decode_map,
+               py::object do_float_as_int, py::object py_do_float_as_decimal) {
     Reader reader;
 
     StreamWrapper stream_wrapper(stream);
@@ -783,9 +840,18 @@ int parse_dict(py::object stream, py::object handler, py::object transit_decode_
 
     reader.IterativeParseInit();
     bool parse_success = true;
+    bool do_float_as_decimal = false;
+    const unsigned int parseFlags = kParseDefaultFlags;
+
+    if (!py::isinstance<py::none>(py_do_float_as_decimal)) {
+        do_float_as_decimal = py_do_float_as_decimal.cast<py::bool_>();
+    }
 
     while (!reader.IterativeParseComplete() && !reader.HasParseError()) {
-        parse_success = reader.IterativeParseNext<kParseDefaultFlags>(stream_wrapper, my_handler);
+        if (do_float_as_decimal)
+            parse_success = reader.IterativeParseNext<kParseDefaultFlags|kParseNumbersAsStringsFlag>(stream_wrapper, my_handler);
+        else
+            parse_success = reader.IterativeParseNext<kParseDefaultFlags>(stream_wrapper, my_handler);
         // Your handler has been called once.
         //cout << "Handler was called! ParseErrorCode = " << reader.GetParseErrorCode() << " Result was: " << parse_success << endl;
     }

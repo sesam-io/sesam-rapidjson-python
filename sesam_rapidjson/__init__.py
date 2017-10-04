@@ -36,18 +36,23 @@ class JSONDictHandler:
 
 class JSONParser:
 
-    def __init__(self, stream, handler=JSONDictHandler, transit_mapping=None, do_float_as_int=False):
+    def __init__(self, stream, handler=JSONDictHandler, transit_mapping=None, do_float_as_int=False,
+                 do_float_as_decimal=False):
         self._queue = Queue(maxsize=10000)
         self._handler = handler(self._queue)
         self._stream = stream
         self._sentinel = None
         self._transit_mapping = transit_mapping
         self._thread = Thread(name="JSONParser", target=self._run)
+        # Output float as an int, if it has no fractions
         self._do_float_as_int = do_float_as_int
+        # Parse floats as python Decimals, keeping the precision (i.e. [1.0, 2.00] -> [Decimal("1.0"), Decimal("2.00")]
+        self._do_float_as_decimal = do_float_as_decimal
 
     def _run(self):
         try:
-            parse_dict(self._stream, self._handler, self._transit_mapping, self._do_float_as_int)
+            parse_dict(self._stream, self._handler, self._transit_mapping, self._do_float_as_int,
+                       self._do_float_as_decimal)
         except BaseException as e:
             self._queue.put(e)
             self._queue.put(None)
