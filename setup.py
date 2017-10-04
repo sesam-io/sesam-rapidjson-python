@@ -3,7 +3,7 @@ from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 
 class get_pybind_include(object):
@@ -104,7 +104,7 @@ setup(
     packages=["sesam_rapidjson"],
     ext_modules=ext_modules,
     setup_requires=['pybind11>=2.2'],
-    install_requires=['pybind11>=2.2', "cffi==1.10.0", "ijson==2.3", "Cython==0.26.1", "python-rapidjson"],
+    install_requires=['pybind11>=2.2'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
 )
