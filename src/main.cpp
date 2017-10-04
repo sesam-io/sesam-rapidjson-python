@@ -488,7 +488,7 @@ public:
     }
 
     bool RawNumber(const char* str, SizeType length, bool copy) {
-        cout << "Raw number! " << str << endl;
+        // cout << "Raw number! " << str << endl;
 
         py::object py_value;
 
@@ -496,11 +496,11 @@ public:
 
         if (is_integer(s_str)) {
             // no fraction or exponent - definately an integer
-            cout << "it's an int!" << endl;
+            //cout << "it's an int!" << endl;
             py::str tmp(s_str);
             py_value = tmp.cast<py::int_>();
         } else {
-            cout << "it's a float!" << endl;
+            //cout << "it's a float!" << endl;
             py_value = py_Decimal(str);
 
             if (try_float_as_int == true) {
@@ -508,7 +508,7 @@ public:
                 py::int_ int_value = py_value.cast<py::int_>();
                 py::object func_eq = py_value.attr("__eq__");
                 if (func_eq(int_value).cast<bool>() == true) {
-                    cout << "The float can be cast to an int!" << endl;
+                    //cout << "The float can be cast to an int!" << endl;
                     py_value = int_value;
                 }
             }
@@ -826,7 +826,7 @@ int parse_strings(py::object stream, py::object handler) {
     py::object handle_end_stream = handler.attr("handle_end_stream");
     handle_end_stream();
 
-    cout << "Finished parsing file" << endl;
+    //cout << "Finished parsing file" << endl;
 
     return 0;
 }
