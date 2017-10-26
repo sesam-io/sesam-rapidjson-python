@@ -48,6 +48,8 @@ class JSONParser:
         self._do_float_as_int = do_float_as_int
         # Parse floats as python Decimals, keeping the precision (i.e. [1.0, 2.00] -> [Decimal("1.0"), Decimal("2.00")]
         self._do_float_as_decimal = do_float_as_decimal
+        # This is not a set but a generator expression (see PEP 289)
+        self._parse_iter = (e for e in self.get_entities())
 
     def _run(self):
         try:
@@ -57,7 +59,7 @@ class JSONParser:
             self._queue.put(e)
             self._queue.put(None)
 
-    def __iter__(self):
+    def get_entities(self):
         self._thread.start()
 
         try:
@@ -69,3 +71,13 @@ class JSONParser:
         finally:
             self._thread.join()
 
+    def __iter__(self):
+        return self
+
+    def as_iterable(self):
+        return self._parse_iter
+
+    def next(self):
+        return next(self._parse_iter)
+
+    __next__ = next

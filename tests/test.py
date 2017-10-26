@@ -112,3 +112,17 @@ for foo in [
     if a != b:
         print(foo, "a != b!", a, b)
 
+print("\nTesting iterator..")
+with StringIO('{"a": "~t0001-01-01T00:00:00Z", '
+              '"b": "~t9999-12-31T23:59:59.000000000Z",'
+              '"c": "~t2015-11-24",'
+              '"d": null,'
+              '"e": "~t2010-12-30T01:20:30.123456Z"'
+              '}') as stream:
+    parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
+    pprint(next(parser))
+
+    try:
+        pprint(next(parser))
+    except StopIteration:
+        print("Got expected StopIteration error!")
