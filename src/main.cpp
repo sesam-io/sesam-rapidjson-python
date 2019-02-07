@@ -369,6 +369,10 @@ public:
     std::string fail_reason;
 
     bool Null() {
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
+
         py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
@@ -388,8 +392,11 @@ public:
     }
 
     bool Bool(bool value) {
-        py::object context_obj = context_stack.back();
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
 
+        py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
@@ -408,6 +415,10 @@ public:
     }
 
     bool Int(int value) {
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
+
         py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
@@ -427,6 +438,10 @@ public:
     }
 
     bool Uint(unsigned value) {
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
+
         py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
@@ -446,6 +461,10 @@ public:
     }
 
     bool Int64(int64_t value) {
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
+
         py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
@@ -465,6 +484,10 @@ public:
     }
 
     bool Uint64(uint64_t value) {
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
+
         py::object context_obj = context_stack.back();
 
         if (py::isinstance<py::dict>(context_obj)) {
@@ -489,6 +512,9 @@ public:
 
     bool RawNumber(const char* str, SizeType length, bool copy) {
         // cout << "Raw number! " << str << endl;
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
 
         py::object py_value;
 
@@ -534,6 +560,10 @@ public:
     }
 
     bool Double(double value) {
+        if (context_stack.size() == 0)
+            // Literal, we don't support it
+            return false;
+
         if (try_float_as_int == true) {
             // Special case: reproduce ijson 2.3 bug: treat non-fractional floats as ints
             double intpart;
@@ -563,6 +593,11 @@ public:
     }
 
     bool String(const char* str, SizeType length, bool copy) {
+        if (context_stack.size() == 0) {
+            // Literal, we don't support it
+            return false;
+        }
+
         py::object context_obj = context_stack.back();
 
         std::string s_str(str);

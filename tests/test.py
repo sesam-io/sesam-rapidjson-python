@@ -126,3 +126,23 @@ with StringIO('{"a": "~t0001-01-01T00:00:00Z", '
         pprint(next(parser))
     except StopIteration:
         print("Got expected StopIteration error!")
+
+print("\nTesting JSON int literal..")
+with StringIO('1234') as stream:
+    parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
+    try:
+        pprint(next(parser))
+    except RapidJSONParseError as e:
+        print("Got expected error!")
+    except BaseException as e:
+        print("Got unexpected error! %s" % repr(e))
+
+print("\nTesting JSON string literal..")
+with StringIO('"1234"') as stream:
+    parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
+    try:
+        pprint(next(parser))
+    except RapidJSONParseError as e:
+        print("Got expected error!")
+    except BaseException as e:
+        print("Got unexpected error! %s" % repr(e))
