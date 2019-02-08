@@ -745,6 +745,8 @@ public:
                 }
 
                 PyErr_Clear();
+              } else {
+                    orig_reason << ex.what();
               }
 
               // Try to convert the original string to a more suitable format for the error message
@@ -811,6 +813,8 @@ public:
             }
 
             PyErr_Clear();
+          } else {
+            orig_reason << ex.what();
           }
 
           // Try to convert the original string to a more suitable format for the error message
