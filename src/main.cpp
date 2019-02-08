@@ -43,6 +43,69 @@ static bool ends_with(const std::string& str, const std::string& suffix)
     return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
 }
 
+// This class is used to grab the python GIL and hold it until the instance of this class
+// goes out of scope.
+class GILHolder {
+  public:
+    GILHolder() {
+      this->gstate = PyGILState_Ensure();
+    }
+    ~GILHolder() {
+      PyGILState_Release(this->gstate);
+    };
+  private:
+     PyGILState_STATE gstate;
+};
+
+
+// This class is used to release the python GIL and grab it again when instance of this class
+// goes out of scope.
+class GILReleaser {
+  public:
+    GILReleaser() {
+      this->save_ = PyEval_SaveThread();
+    }
+
+    ~GILReleaser() {
+        PyEval_RestoreThread(this->save_);
+    }
+  private:
+    PyThreadState* save_;
+};
+
+// This function returns a shared_ptr that will call Py_DECREF on the python object once the
+// last shared_ptr to it is gone. The purpose of this is to avoid having to manually remember to
+// call Py_DECREF() correctly.
+std::shared_ptr<PyObject> make_decref_python_ptr(PyObject* py_object) {
+  return std::shared_ptr<PyObject>(py_object, [](PyObject* py_object) {
+    if(py_object != nullptr) {
+      // TODO: check if it is expensive to call PyGILState_Check here
+      if (!PyGILState_Check()) {
+        std::cerr << "make_decref_python_ptr deleter was called without holding the GIL! ";
+        std::cerr.flush();
+        {
+          std::cerr << "The python object looks like this:\n" << std::endl;
+          GILHolder gil_holder;
+          PyObject_Print(py_object, stderr, Py_PRINT_RAW);
+          std::cerr << std::endl;
+        }
+        std::cerr.flush();
+
+        throw std::runtime_error("make_decref_python_ptr deleter was called without holding the GIL!");
+      }
+      //std::cout << "make_decref_python_ptr deleter calling Py_DECREF()" << std::endl; std::cout.flush();
+      const auto refcount = Py_REFCNT(py_object);
+      if (refcount > 0) {
+        Py_DECREF(py_object);
+      } else {
+        std::cerr << std::endl << "make_decref_python_ptr deleter got an object with an invalid refcount: " << refcount << std::endl;
+        std::cerr.flush();
+      }
+      //std::cout << "make_decref_python_ptr deleter successfully called Py_DECREF()" << std::endl; std::cout.flush();
+    }
+  });
+}
+
 py::int_ parse8601(const std::string &date_str)
 {
     using namespace date;
@@ -362,7 +425,7 @@ private:
     bool try_float_as_int;
     bool do_float_as_decimal;
     std::vector<py::object> context_stack;
-    std::vector<std::string> name_context;
+    std::vector<py::str> name_context;
     std::map <std::string, py::object> transit_map;
 
 public:
@@ -378,10 +441,10 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = py::none();
+            parent_dict[prop_name] = py::none();
         }
         else {
             // [value1, value2]
@@ -402,10 +465,10 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = value;
+            parent_dict[prop_name] = value;
         }
         else {
             // [value1, value2]
@@ -426,10 +489,10 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = value;
+            parent_dict[prop_name] = value;
         }
         else {
             // [value1, value2]
@@ -450,10 +513,10 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = value;
+            parent_dict[prop_name] = value;
         }
         else {
             // [value1, value2]
@@ -474,10 +537,10 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = value;
+            parent_dict[prop_name] = value;
         }
         else {
             // [value1, value2]
@@ -498,10 +561,10 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = value;
+            parent_dict[prop_name] = value;
         }
         else {
             // [value1, value2]
@@ -550,11 +613,11 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
 
-            parent_dict[py::str(prop_name)] = py_value;
+            parent_dict[prop_name] = py_value;
         }
         else {
             // [value1, value2]
@@ -584,11 +647,11 @@ public:
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
 
-            parent_dict[py::str(prop_name)] = value;
+            parent_dict[prop_name] = value;
         }
         else {
             // [value1, value2]
@@ -657,16 +720,57 @@ public:
             }
         }
 
-        if (result_value == NULL || py::isinstance<py::none>(result_value))
-            result_value = py::str(s_str);
+        if (result_value == NULL || py::isinstance<py::none>(result_value)) {
+            try {
+                result_value = py::str(s_str);
+            } catch (std::exception& ex) {
+              std::stringstream orig_reason;
+
+              if (PyErr_Occurred()) {
+                PyObject *type, *value, *traceback;
+                PyErr_Fetch(&type, &value, &traceback);
+                PyErr_NormalizeException(&type, &value, &traceback);
+
+                auto type_decref = make_decref_python_ptr(type);
+                auto value_decref = make_decref_python_ptr(value);
+                auto traceback_decref = make_decref_python_ptr(traceback);
+
+                if (value != nullptr) {
+                    PyObject *py_str_value = PyObject_Str(value);
+                    auto decref_py_str_value = make_decref_python_ptr(py_str_value);
+
+                    const char* raw_python_error_msg = PyUnicode_AsUTF8(py_str_value);
+                    std::string s_python_error_msg(raw_python_error_msg);
+                    orig_reason << s_python_error_msg;
+                }
+
+                PyErr_Clear();
+              } else {
+                    orig_reason << ex.what();
+              }
+
+              // Try to convert the original string to a more suitable format for the error message
+              PyObject *orig_str = PyUnicode_DecodeUTF8(str, (size_t)length, "backslashreplace");
+
+              auto orig_str_decref = make_decref_python_ptr(orig_str);
+
+              const char* raw_python_orig_str = PyUnicode_AsUTF8(orig_str);
+              std::string s_raw_python_orig_str(raw_python_orig_str);
+
+              std::stringstream reason;
+              reason << "Failed to decode string '" << s_raw_python_orig_str << "'. Exception raised: " << orig_reason.str();
+
+              fail_reason = reason.str();
+              return false;
+            }
+        }
 
         if (py::isinstance<py::dict>(context_obj)) {
             // key:value
-            std::string prop_name = name_context.back();
+            py::str prop_name = name_context.back();
             name_context.pop_back();
             py::dict parent_dict = (py::dict)context_obj;
-            parent_dict[py::str(prop_name)] = result_value;
-
+            parent_dict[prop_name] = result_value;
         }
         else {
             // [value1, value2]
@@ -684,7 +788,50 @@ public:
     }
 
     bool Key(const char* str, SizeType length, bool copy) {
-        name_context.push_back(str);
+        try {
+          py::str key_value = py::str(str);
+          name_context.push_back(key_value);
+        } catch (std::exception& ex) {
+          std::stringstream orig_reason;
+
+          if (PyErr_Occurred()) {
+            PyObject *type, *value, *traceback;
+            PyErr_Fetch(&type, &value, &traceback);
+            PyErr_NormalizeException(&type, &value, &traceback);
+
+            auto type_decref = make_decref_python_ptr(type);
+            auto value_decref = make_decref_python_ptr(value);
+            auto traceback_decref = make_decref_python_ptr(traceback);
+
+            if (value != nullptr) {
+                PyObject *py_str_value = PyObject_Str(value);
+                auto decref_py_str_value = make_decref_python_ptr(py_str_value);
+
+                const char* raw_python_error_msg = PyUnicode_AsUTF8(py_str_value);
+                std::string s_python_error_msg(raw_python_error_msg);
+                orig_reason << s_python_error_msg;
+            }
+
+            PyErr_Clear();
+          } else {
+            orig_reason << ex.what();
+          }
+
+          // Try to convert the original string to a more suitable format for the error message
+          PyObject *orig_str = PyUnicode_DecodeUTF8(str, (size_t)length, "backslashreplace");
+
+          auto orig_str_decref = make_decref_python_ptr(orig_str);
+
+          const char* raw_python_orig_str = PyUnicode_AsUTF8(orig_str);
+          std::string s_raw_python_orig_str(raw_python_orig_str);
+
+          std::stringstream reason;
+          reason << "Failed to decode string '" << s_raw_python_orig_str << "'. Exception raised: " << orig_reason.str();
+
+          fail_reason = reason.str();
+          return false;
+        }
+
         return true;
     }
 
@@ -708,11 +855,10 @@ public:
 
             if (py::isinstance<py::dict>(parent)) {
                 // Parent is a dict, add the object to the current property
-                std::string prop_name = name_context.back();
+                py::str prop_name = name_context.back();
                 name_context.pop_back();
                 py::dict parent_dict = (py::dict)parent;
-                parent_dict[py::str(prop_name)] = entity;
-
+                parent_dict[prop_name] = entity;
             }
             else {
                 // Parent is a list, append the object
@@ -737,11 +883,10 @@ public:
             py::object parent = context_stack.back();
 
             if (py::isinstance<py::dict>(parent)) {
-                std::string prop_name = name_context.back();
+                py::str prop_name = name_context.back();
                 name_context.pop_back();
                 py::dict parent_dict = (py::dict)parent;
-                parent_dict[py::str(prop_name)] = list;
-
+                parent_dict[prop_name] = list;
             }
             else {
                 py::list parent_list = (py::list)parent;
