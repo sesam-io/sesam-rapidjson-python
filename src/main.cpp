@@ -675,7 +675,7 @@ public:
         py::object result_value;
 
         if (!transit_map.empty()) {
-            if (s_str.length() > 2 && s_str[0] == '~') {
+            if (s_str.length() > 1 && s_str[0] == '~') {
                 std::string prefix = s_str.substr(1, 1);
                 std::string value = s_str.substr(2);
 
