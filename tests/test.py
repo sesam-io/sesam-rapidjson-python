@@ -170,3 +170,14 @@ with BytesIO(b'[{"f\xe5r": "Dette er ikke en utf-8 key!"}]') as stream:
         print("Got expected error!")
     except BaseException as e:
         print("Got unexpected error! %s" % repr(e))
+
+
+print("\nTesting empty transit encoding.")
+with BytesIO(b'[{"a": "~f"}]') as stream:
+    parser = JSONParser(stream, transit_mapping=trans_dict, do_float_as_int=True)
+    try:
+        pprint(next(parser))
+        raise RuntimeError("This should not work!")
+    except RapidJSONParseError as e:
+        print(repr(e))
+        print("Got expected error!")
