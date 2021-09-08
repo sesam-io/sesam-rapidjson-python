@@ -202,7 +202,7 @@ public:
     }
 
     Ch Take() { // 2
-        if (buffer.empty() || buffer_cursor >= BUFFER_SIZE) {
+        if (buffer.empty() || buffer_cursor >= buffer.length()) {
             // Get new buffer from stream
             buffer = py_io_read(BUFFER_SIZE).cast<std::string>();
             buffer_cursor = 0;
@@ -301,7 +301,7 @@ public:
     }
 
     Ch Take() { // 2
-        if (buffer.empty() || buffer_cursor >= BUFFER_SIZE) {
+        if (buffer.empty() || buffer_cursor >= buffer.length()) {
             // Get new buffer from stream
             buffer = py_io_read(BUFFER_SIZE).cast<std::string>();
             buffer_cursor = 0;
