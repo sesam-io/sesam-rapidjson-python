@@ -7,7 +7,7 @@ Installation
 The installation is in two parts. The pybind11 package must be pre-installed before you install this package. The reason for this is that pip/setuptools doesn't support build requirements yet. 
 It means that if you intend to use this package in your own project, you must also include the pybind dependency explicitly in addition to this package.
 
-    pip install "pybind11>=2.2"
+    pip install "pybind11==2.2.4"
     pip install -U .
 
 
