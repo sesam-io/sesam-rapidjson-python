@@ -1,3 +1,3 @@
 [build-system]
-requires=["setuptools>=50", "pybind11==2.2.4"]
+requires=["setuptools>=50", "pybind11==2.6.2"]
 build-backend = "setuptools.build_meta"
