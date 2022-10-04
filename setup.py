@@ -62,7 +62,6 @@ setup(
     long_description='',
     packages=["sesam_rapidjson"],
     ext_modules=ext_modules,
-    setup_requires=['pybind11==2.2.4'],
-    install_requires=['pybind11==2.2.4'],
+    install_requires=['pybind11==2.6.2'],
     zip_safe=False,
 )
